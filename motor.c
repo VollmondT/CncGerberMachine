@@ -13,11 +13,11 @@ static void MotorDriverSetPad(MotorDriver* drv, MotorPadsIndex pad, int set) {
 
 typedef void(*Stepfunction)(GPTDriver*);
 
+static unsigned motor_movement_x1, motor_movement_x2, motor_movement_y1, motor_movement_y2;
 static int motor_x_delta, motor_y_delta; // total steps count in any direction
-static unsigned motor_microsteps; // how many microsteps we need to do at current full step
-static int motor_x_involved, motor_y_involved; // involved on next full step
-
-static unsigned motor_steps_ticker;
+static int motor_movement_interpolation_error;
+static uint16_t motor_microsteps;
+static unsigned char motor_x_involved, motor_y_involved; // involved on next full step
 Stepfunction motor_step_next_stage, motor_step_function;
 
 BSEMAPHORE_DECL(motor_sem, TRUE);
@@ -33,14 +33,12 @@ static void MotorStepStageOnMeandrGenerated(GPTDriver* gptp) {
 }
 
 void MotorStepStagePrepareFullStep(GPTDriver* gptp) {
-	if( motor_steps_ticker == 0 ) {
+	if( motor_movement_x1 == motor_movement_x2 && motor_movement_y1 == motor_movement_y2 ) {
 		// finished
 		gptStopTimerI(gptp);
 		chBSemSignalI(&motor_sem);
 		return;
 	}
-
-	--motor_steps_ticker;
 
 	if( MOTOR_MICROSTEPPING == sFull ) {
 		motor_step_function = MotorStepStagePrepareFullStep;
@@ -50,7 +48,27 @@ void MotorStepStagePrepareFullStep(GPTDriver* gptp) {
 	}
 
 	//
-	if( motor_x_delta ) {
+	const int error = motor_movement_interpolation_error * 2;
+	if(error > -motor_y_delta) 
+	{
+		motor_movement_interpolation_error -= motor_y_delta;
+		++motor_movement_x1;
+		motor_x_involved = 1;
+		MotorDriverSetPad(MOTOR_X, PadStep, 1);
+	} else {
+		motor_x_involved = 0;
+	}
+	
+	if(error < motor_x_delta) {
+		motor_movement_interpolation_error += motor_x_delta;
+		++motor_movement_y1;
+		motor_y_involved = 1;
+		MotorDriverSetPad(MOTOR_Y, PadStep, 1);
+	} else {
+		motor_y_involved = 0;
+	}
+
+/*	if( motor_x_delta ) {
 		--motor_x_delta;
 		motor_x_involved = 1;
 		MotorDriverSetPad(MOTOR_X, PadStep, 1);
@@ -64,7 +82,7 @@ void MotorStepStagePrepareFullStep(GPTDriver* gptp) {
 		MotorDriverSetPad(MOTOR_Y, PadStep, 1);
 	} else {
 		motor_y_involved = 0;
-	}
+	}*/
 	//
 
 	motor_step_next_stage = MotorStepStageOnMeandrGenerated;
@@ -169,9 +187,13 @@ MotorDriver DRV2 = {
 
 
 void MotorGroupMakeSteps(const unsigned x_count, const unsigned y_count) {
+	motor_movement_x1 = 0;
+	motor_movement_y1 = 0;
+	motor_movement_x2 = x_count;
+	motor_movement_y2 = y_count;
 	motor_x_delta = x_count;
 	motor_y_delta = y_count;
-	motor_steps_ticker = x_count > y_count ? x_count : y_count;
+	motor_movement_interpolation_error = motor_x_delta - motor_y_delta;
 
 	motor_step_next_stage = MotorStepStagePrepareFullStep;
 	gptStartContinuous(MOTOR_TIMER, STEP_MEANDR);
