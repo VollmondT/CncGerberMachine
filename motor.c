@@ -3,10 +3,6 @@
 #define STEP_MEANDR 20
 #define STEP_WAIT 200
 
-static int motor_x_delta, motor_y_delta;
-
-BSEMAPHORE_DECL(motor_sem, TRUE);
-
 static void MotorDriverSetPad(MotorDriver* drv, MotorPadsIndex pad, int set) {
 	if( set ) {
 		palSetPad(drv->m_pads[pad].m_port, drv->m_pads[pad].m_pad);
@@ -15,27 +11,84 @@ static void MotorDriverSetPad(MotorDriver* drv, MotorPadsIndex pad, int set) {
 	}
 }
 
+typedef void(*Stepfunction)(GPTDriver*);
 
-static void motor_cb(GPTDriver* gptp) {
-	osalSysLockFromISR();
+static int motor_x_delta, motor_y_delta; // total steps count in any direction
+static unsigned motor_microsteps; // how many microsteps we need to do at current full step
+static int motor_x_involved, motor_y_involved; // involved on next full step
 
-	motor_x_delta--;
-	motor_y_delta--;
+static unsigned motor_steps_ticker;
+Stepfunction motor_step_next_stage, motor_step_function;
 
-	if( motor_x_delta > 0 || motor_y_delta > 0) {
-		int tick = motor_x_delta & 1; // odd number, no x meaning
-		if( motor_x_delta > 0 ) {
-			MotorDriverSetPad(MOTOR_X, PadStep, tick);
-		}
-		if( motor_y_delta > 0 ) {
-			MotorDriverSetPad(MOTOR_Y, PadStep, tick);
-		}
-		gptChangeIntervalI(gptp, tick ? STEP_MEANDR : STEP_WAIT);
-	} else {
+BSEMAPHORE_DECL(motor_sem, TRUE);
+
+static void MotorStepStageMakeMicrostep(GPTDriver* gptp);
+
+static void MotorStepStageOnMeandrGenerated(GPTDriver* gptp) {
+	MotorDriverSetPad(MOTOR_X, PadStep, 0);
+	MotorDriverSetPad(MOTOR_Y, PadStep, 0);
+	--motor_microsteps;
+	motor_step_next_stage = motor_step_function;
+	gptChangeIntervalI(gptp, STEP_WAIT);
+}
+
+void MotorStepStagePrepareFullStep(GPTDriver* gptp) {
+	if( motor_steps_ticker == 0 ) {
+		// finished
 		gptStopTimerI(gptp);
 		chBSemSignalI(&motor_sem);
+		return;
 	}
 
+	--motor_steps_ticker;
+
+	if( MOTOR_MICROSTEPPING == sFull ) {
+		motor_step_function = MotorStepStagePrepareFullStep;
+	} else {
+		motor_microsteps = MOTOR_MICROSTEPPING;
+		motor_step_function = MotorStepStageMakeMicrostep;
+	}
+
+	//
+	if( motor_x_delta ) {
+		--motor_x_delta;
+		motor_x_involved = 1;
+		MotorDriverSetPad(MOTOR_X, PadStep, 1);
+	} else {
+		motor_x_involved = 0;
+	}
+
+	if( motor_y_delta ) {
+		--motor_y_delta;
+		motor_y_involved = 1;
+		MotorDriverSetPad(MOTOR_Y, PadStep, 1);
+	} else {
+		motor_y_involved = 0;
+	}
+	//
+
+	motor_step_next_stage = MotorStepStageOnMeandrGenerated;
+	gptChangeIntervalI(gptp, STEP_MEANDR);
+}
+
+void MotorStepStageMakeMicrostep(GPTDriver* gptp) {
+	if( motor_x_involved ) {
+		MotorDriverSetPad(MOTOR_X, PadStep, 1);
+	}
+	if( motor_y_involved ) {
+		MotorDriverSetPad(MOTOR_Y, PadStep, 1);
+	}
+	if( motor_microsteps == 1 ) {
+		motor_step_function = MotorStepStagePrepareFullStep;
+	}
+	motor_step_next_stage = MotorStepStageOnMeandrGenerated;
+	gptChangeIntervalI(gptp, STEP_MEANDR);
+}
+
+
+static void MotorCallback(GPTDriver* gptp) {
+	osalSysLockFromISR();
+	motor_step_next_stage(gptp);
 	osalSysUnlockFromISR();
 }
 
@@ -115,9 +168,12 @@ MotorDriver DRV2 = {
 };
 
 
-void MotorGroupMakeSteps(const int x_count, const int y_count) {
-	motor_x_delta = x_count*MOTOR_MICROSTEPPING*2;
-	motor_y_delta = y_count*MOTOR_MICROSTEPPING*2;
-	gptStartContinuous(MOTOR_TIMER, STEP_WAIT);
+void MotorGroupMakeSteps(const unsigned x_count, const unsigned y_count) {
+	motor_x_delta = x_count;
+	motor_y_delta = y_count;
+	motor_steps_ticker = x_count > y_count ? x_count : y_count;
+
+	motor_step_next_stage = MotorStepStagePrepareFullStep;
+	gptStartContinuous(MOTOR_TIMER, STEP_MEANDR);
 	chBSemWait(&motor_sem);
 }

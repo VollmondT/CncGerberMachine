@@ -17,8 +17,8 @@
 #define SHELL_WA_SIZE   THD_WORKING_AREA_SIZE(2048)
 
 static PWMConfig pwmcfg = {
-	50000,                                    /* 10kHz PWM clock frequency.   */
-	100,                                    /* Initial PWM period 10ms.       */
+	50000,
+	100,
 	NULL,
 	{
 		{PWM_OUTPUT_DISABLED, NULL},
@@ -167,7 +167,7 @@ static const ShellConfig shell_cfg1 = {
 
 static const GPTConfig gpt_motor = {
 	1000000,
-	motor_cb,
+	MotorCallback,
 	0,
 	0
 };
@@ -183,14 +183,15 @@ int main(void) {
         sdStart(&SD3, NULL);
 
 	pwmStart(&PWMD2, &pwmcfg);
+	
+	gptStart(MOTOR_TIMER, &gpt_motor);
 
 	MotorDriverInit(MOTOR_X);
 	MotorDriverSetReset(MOTOR_X, false);
 
 	MotorDriverInit(MOTOR_Y);
 	MotorDriverSetReset(MOTOR_Y, false);
-	gptStart(MOTOR_TIMER, &gpt_motor);
-
+	
 	while( 1 ) {
 		thread_t *shelltp = chThdCreateFromHeap(
 			NULL,

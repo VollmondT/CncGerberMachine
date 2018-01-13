@@ -361,7 +361,7 @@ void GerberAcceptCommand(GerberContext* ctx, int argc, char* argv[]) {
 void MoveTo(const int xpos, const int ypos) {
 	int x_delta = xpos - CUR_X;
 	int y_delta = ypos - CUR_Y;
-	chprintf(chp, "CUR_X=%d CUR_Y=%d deltax=%d deltay=%d\r\n", CUR_X, CUR_Y, x_delta, y_delta);
+	//chprintf(chp, "CUR_X=%d CUR_Y=%d deltax=%d deltay=%d\r\n", CUR_X, CUR_Y, x_delta, y_delta);
 	
 	if( x_delta >= 0 ) {
 		MotorDriverSetDirection(MOTOR_X, MOTOR_X_DIRECTION_PLUS);

@@ -41,7 +41,6 @@ void GerberContextFree(GerberContext* ctx);
 
 void GerberAcceptCommand(GerberContext* ctx, int argc, char* argv[]);
 void MoveTo(const int x, const int y);
-void MoveToInterpolated(const int x, const int y);
 
 #endif // _GERBER_H
 
