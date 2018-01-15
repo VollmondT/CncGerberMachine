@@ -1,7 +1,7 @@
 #include "motor.h"
 
 #define STEP_MEANDR 20
-#define STEP_WAIT 200
+#define STEP_WAIT 500
 
 static void MotorDriverSetPad(MotorDriver* drv, MotorPadsIndex pad, int set) {
 	if( set ) {
@@ -47,7 +47,6 @@ void MotorStepStagePrepareFullStep(GPTDriver* gptp) {
 		motor_step_function = MotorStepStageMakeMicrostep;
 	}
 
-	//
 	const int error = motor_movement_interpolation_error * 2;
 	if(error > -motor_y_delta) 
 	{
@@ -67,23 +66,6 @@ void MotorStepStagePrepareFullStep(GPTDriver* gptp) {
 	} else {
 		motor_y_involved = 0;
 	}
-
-/*	if( motor_x_delta ) {
-		--motor_x_delta;
-		motor_x_involved = 1;
-		MotorDriverSetPad(MOTOR_X, PadStep, 1);
-	} else {
-		motor_x_involved = 0;
-	}
-
-	if( motor_y_delta ) {
-		--motor_y_delta;
-		motor_y_involved = 1;
-		MotorDriverSetPad(MOTOR_Y, PadStep, 1);
-	} else {
-		motor_y_involved = 0;
-	}*/
-	//
 
 	motor_step_next_stage = MotorStepStageOnMeandrGenerated;
 	gptChangeIntervalI(gptp, STEP_MEANDR);

@@ -62,13 +62,97 @@ static void ApertureCFlash(GerberContext *ctx, ApertureC *a, int xpos, int ypos)
 	}
 }
 
+static void FillRectangle(int x1, int y1, int x2, int y2, int xlen, int ylen) {
+	const int deltaX = abs(x2 - x1);
+	const int deltaY = abs(y2 - y1);
+	const int signX = x1 < x2 ? 1 : -1;
+	const int signY = y1 < y2 ? 1 : -1;
+	
+	int error = deltaX - deltaY;
+	
+	//chprintf(chp, "(%d,%d) to (%d,%d) %d %d\r\n", x1, y1, x2, y2, xlen, ylen);
+	
+	while(x1 != x2 || y1 != y2) {
+		MoveTo(x1, y1);
+		LaserEnable();
+		MoveTo(x1 + xlen, y1 + ylen);
+		LaserDisable();
+
+		const int error2 = error * 2;
+
+		if(error2 > -deltaY) {
+			error -= deltaY;
+			x1 += signX;
+		}
+		if(error2 < deltaX) {
+			error += deltaX;
+			y1 += signY;
+		}
+	}
+
+	MoveTo(x2, y2);
+	LaserEnable();
+	MoveTo(x2 + xlen, y2 + ylen);
+	LaserDisable();
+}
+
 static void ApertureCLine(GerberContext *ctx, ApertureC *a, int x, int y) {
-	(void)ctx;
-	(void)a;
-	(void)x;
-	(void)y;
-	ApertureCFlash(ctx, a, ctx->x, ctx->y);
-	ApertureCFlash(ctx, a, x, y);
+	
+	unsigned half_accuracy = 2 * ctx->step_accuracy;
+	unsigned tool = ctx->tool_width / half_accuracy;
+	if( ctx->tool_width % half_accuracy ) {
+		++tool;
+	}
+	int radix_in_steps = a->radix/ctx->step_accuracy;
+	if( radix_in_steps > 10 ) {
+		ApertureCFlash(ctx, a, ctx->x, ctx->y);
+	}
+	
+	int deltax = (x - ctx->x);
+	int deltay = (y - ctx->y);
+	
+	int A_x_pos, A_y_pos;
+	int B_x_pos, B_y_pos;
+	
+	if( deltax == 0 ) {
+		A_x_pos = radix_in_steps - tool;
+		A_y_pos = 0;
+		B_x_pos = -radix_in_steps + tool;
+		B_y_pos = 0;
+	} else if (deltay == 0 ) {
+		A_x_pos = 0;
+		A_y_pos = radix_in_steps - tool;
+		B_x_pos = 0;
+		B_y_pos = -radix_in_steps + tool;
+	} else {
+		float tgx_fi_quad = (float)deltay/(float)deltax;
+		tgx_fi_quad *= tgx_fi_quad;
+		float qy = sqrtf( radix_in_steps * radix_in_steps * tgx_fi_quad / (tgx_fi_quad + 1) );
+		float qx = qy / tgx_fi_quad;
+
+		// quadrants
+		// | Q4 | Q1 |
+		// | Q3 | Q2 |
+		if( (deltax > 0 && deltay > 0) || (deltax < 0 && deltay < 0)  ) {
+			// Q1 and Q3
+			A_x_pos = -qy;
+			A_y_pos = qx;
+			B_x_pos = qy;
+			B_y_pos = -qx;
+		} else {
+			// Q2 and Q4
+			A_x_pos = qy;
+			A_y_pos = qx;
+			B_x_pos = -qx;
+			B_y_pos = -qy;
+		}
+	}
+	
+	FillRectangle(ctx->x + A_x_pos, ctx->y + A_y_pos, ctx->x + B_x_pos, ctx->y + B_y_pos, deltax, deltay);
+	
+	if( radix_in_steps > 10 ) {
+		ApertureCFlash(ctx, a, x, y);
+	}
 }
 
 static Aperture* ApertureCNew(unsigned code, const char* data) {
