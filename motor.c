@@ -137,9 +137,9 @@ void MotorDriverInit(MotorDriver* drv) {
 		palSetPadMode(drv->m_pads[i].m_port, drv->m_pads[i].m_pad, PAL_MODE_OUTPUT_PUSHPULL);
 	}
 	MotorDriverSetPad(drv, PadStep, 0);
-	MotorDriverSetEnabled(drv, false);
+	MotorDriverSetEnabled(drv, true);
 	MotorDriverSetSleep(drv, true);
-	MotorDriverSetReset(drv, true);
+	MotorDriverSetReset(drv, false);
 	MotorDriverSetStepping(drv, MOTOR_MICROSTEPPING);
 }
 

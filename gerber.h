@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define TOOL_W 20
+
 extern int CUR_X;
 extern int CUR_Y;
 
@@ -16,6 +18,7 @@ typedef struct Aperture {
 	ApertureFlash flash;
 	ApertureLineTo line;
 	void* next;
+	const char* name;
 } Aperture;
 
 typedef struct GerberContext {
@@ -32,6 +35,7 @@ typedef struct GerberContext {
 	unsigned is_single_quadrant;
 	unsigned is_clockwise;
 	unsigned tool_width; // 0.04mm = 4
+	unsigned line_counter;
 } GerberContext;
 
 

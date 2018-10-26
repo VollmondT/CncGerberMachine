@@ -4,6 +4,8 @@
 #include "gerber.h"
 #include "laser.h"
 
+#define HERE() //(chp, "here %d\r\n", __LINE__)
+
 static BaseSequentialStream *chp = (BaseSequentialStream*)&SD3;
 
 int CUR_X = 0;
@@ -38,6 +40,11 @@ static void ApertureCFlash(GerberContext *ctx, ApertureC *a, int xpos, int ypos)
 		++tool;
 	}
 	int radix_in_steps = a->radix/ctx->step_accuracy - tool;
+
+	if( radix_in_steps < 1 ) {
+		radix_in_steps = 1;
+	}
+
 	unsigned dir = 0;
 	
 	for(int y = -radix_in_steps; y <= radix_in_steps; ++y ) {
@@ -98,7 +105,7 @@ static void FillRectangle(int x1, int y1, int x2, int y2, int xlen, int ylen) {
 
 static void ApertureCLine(GerberContext *ctx, ApertureC *a, int x, int y) {
 	
-	unsigned half_accuracy = 2 * ctx->step_accuracy;
+	const unsigned half_accuracy = 2 * ctx->step_accuracy;
 	unsigned tool = ctx->tool_width / half_accuracy;
 	if( ctx->tool_width % half_accuracy ) {
 		++tool;
@@ -107,47 +114,20 @@ static void ApertureCLine(GerberContext *ctx, ApertureC *a, int x, int y) {
 	if( radix_in_steps > 10 ) {
 		ApertureCFlash(ctx, a, ctx->x, ctx->y);
 	}
-	
-	int deltax = (x - ctx->x);
-	int deltay = (y - ctx->y);
-	
-	int A_x_pos, A_y_pos;
-	int B_x_pos, B_y_pos;
-	
-	if( deltax == 0 ) {
-		A_x_pos = radix_in_steps - tool;
-		A_y_pos = 0;
-		B_x_pos = -radix_in_steps + tool;
-		B_y_pos = 0;
-	} else if (deltay == 0 ) {
-		A_x_pos = 0;
-		A_y_pos = radix_in_steps - tool;
-		B_x_pos = 0;
-		B_y_pos = -radix_in_steps + tool;
-	} else {
-		float tgx_fi_quad = (float)deltay/(float)deltax;
-		tgx_fi_quad *= tgx_fi_quad;
-		float qy = sqrtf( radix_in_steps * radix_in_steps * tgx_fi_quad / (tgx_fi_quad + 1) );
-		float qx = qy / tgx_fi_quad;
-
-		// quadrants
-		// | Q4 | Q1 |
-		// | Q3 | Q2 |
-		if( (deltax > 0 && deltay > 0) || (deltax < 0 && deltay < 0)  ) {
-			// Q1 and Q3
-			A_x_pos = -qy;
-			A_y_pos = qx;
-			B_x_pos = qy;
-			B_y_pos = -qx;
-		} else {
-			// Q2 and Q4
-			A_x_pos = qy;
-			A_y_pos = qx;
-			B_x_pos = -qx;
-			B_y_pos = -qy;
-		}
+	radix_in_steps -= tool;
+	if( radix_in_steps < 1 ) {
+		radix_in_steps = 1;
 	}
-	
+
+	const int deltax = (x - ctx->x);
+	const int deltay = (y - ctx->y);
+	const float L = sqrtf(deltax*deltax + deltay*deltay);
+
+	const int A_x_pos = radix_in_steps * deltax / L;
+	const int B_x_pos = -A_x_pos;
+	const int A_y_pos = radix_in_steps * deltay / L;
+	const int B_y_pos = -A_y_pos;
+
 	FillRectangle(ctx->x + A_x_pos, ctx->y + A_y_pos, ctx->x + B_x_pos, ctx->y + B_y_pos, deltax, deltay);
 	
 	if( radix_in_steps > 10 ) {
@@ -162,6 +142,7 @@ static Aperture* ApertureCNew(unsigned code, const char* data) {
 	a->a.line = (ApertureLineTo)ApertureCLine;
 	a->a.dtor = free;
 	a->a.next = NULL;
+	a->a.name = "circle";
 	float radix;
 	if( sscanf(data, "%f", &radix) ) {
 		a->radix = radix * 50; // (100/2)
@@ -223,6 +204,7 @@ static Aperture* ApertureRNew(unsigned code, const char* data) {
 	a->a.line = NULL;
 	a->a.dtor = free;
 	a->a.next = NULL;
+	a->a.name = "rectangle";
 	float w,h;
 	if( sscanf(data, "%fX%f", &w, &h) == 2 ) {
 		a->w = w *100;
@@ -248,6 +230,7 @@ static Aperture* ApertureONew(unsigned code, const char* data) {
 	a->a.line = NULL;
 	a->a.dtor = free;
 	a->a.next = NULL;
+	a->a.name = "obround";
 	float w,h;
 	if( sscanf(data, "%fX%f", &w, &h) == 2 ) {
 		a->w = w *100;
@@ -274,7 +257,8 @@ GerberContext* GerberContextNew(void) {
 	ctx->is_linear_interpolation = 1;
 	ctx->is_single_quadrant = 1;
 	ctx->is_clockwise = 1;
-	ctx->tool_width = 10;
+	ctx->tool_width = TOOL_W;
+	ctx->line_counter = 0;
 	return ctx;
 }
 
@@ -373,6 +357,8 @@ static void GerberLoadAperture(GerberContext* ctx, unsigned code) {
 	
 	if( ctx->current_aperture == NULL ) {
 		chprintf(chp, "failed to set aperture: %u\r\n", code);
+	} else {
+		chprintf(chp, "aperture set: %s\r\n", ctx->current_aperture->name);
 	}
 }
 
@@ -383,6 +369,8 @@ void GerberAcceptCommand(GerberContext* ctx, int argc, char* argv[]) {
 			argv[0][i] = '\0'; 
 		}
 	}
+	
+	chprintf(chp, "executing line: %u\r\n", ++ctx->line_counter);
 	
 	if( strncmp(argv[0], "G04", 3) == 0 ) {
 		// ignore comments

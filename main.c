@@ -38,11 +38,7 @@ static void cmd_start(BaseSequentialStream *chp, int argc, char *argv[]) {
 	(void)argv;
 	(void)chp;
 
-	MotorDriverSetEnabled(MOTOR_X, true);
 	MotorDriverSetSleep(MOTOR_X, false);
-	
-	
-	MotorDriverSetEnabled(MOTOR_Y, true);
 	MotorDriverSetSleep(MOTOR_Y, false);
 }
 
@@ -52,11 +48,7 @@ static void cmd_stop(BaseSequentialStream *chp, int argc, char *argv[]) {
 	(void)chp;
 	
 	MoveTo(0,0);
-
-	MotorDriverSetEnabled(MOTOR_X, false);
 	MotorDriverSetSleep(MOTOR_X, true);
-	
-	MotorDriverSetEnabled(MOTOR_Y, false);
 	MotorDriverSetSleep(MOTOR_Y, true);
 }
 
@@ -187,10 +179,7 @@ int main(void) {
 	gptStart(MOTOR_TIMER, &gpt_motor);
 
 	MotorDriverInit(MOTOR_X);
-	MotorDriverSetReset(MOTOR_X, false);
-
 	MotorDriverInit(MOTOR_Y);
-	MotorDriverSetReset(MOTOR_Y, false);
 	
 	while( 1 ) {
 		thread_t *shelltp = chThdCreateFromHeap(
