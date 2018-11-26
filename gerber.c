@@ -413,17 +413,17 @@ void GerberAcceptCommand(GerberContext* ctx, int argc, char* argv[]) {
 		long long x = 0, y = 0;
 		unsigned code;
 		if( sscanf(argv[0], "X%lldY%lldD%u", &x, &y, &code) == 3 ) {
-			GerberExecuteD(ctx, code, GerberInterpretCoords(ctx, x, 1), GerberInterpretCoords(ctx, y, 0));
-			return;
+			return GerberExecuteD(ctx, code, GerberInterpretCoords(ctx, x, 1), GerberInterpretCoords(ctx, y, 0));
 		} else if( sscanf(argv[0], "X%lldD%u", &x, &code) == 2 ) {
-			GerberExecuteD(ctx, code, GerberInterpretCoords(ctx, x, 1), ctx->y);
-			return;
+			return GerberExecuteD(ctx, code, GerberInterpretCoords(ctx, x, 1), ctx->y);
 		} else if( sscanf(argv[0], "Y%lldD%u", &y, &code) == 2 ) {
-			GerberExecuteD(ctx, code, ctx->x, GerberInterpretCoords(ctx, y, 0));
-			return;
+			return GerberExecuteD(ctx, code, ctx->x, GerberInterpretCoords(ctx, y, 0));
 		} else if( sscanf(argv[0], "D%u", &code) == 1 ) {
-			GerberLoadAperture(ctx, code);
-			return;
+			if( code > 0 && code < 4 ) {
+				// G[1,3] without coordinates
+				return GerberExecuteD(ctx, code, ctx->x, ctx->y);
+			}
+			return GerberLoadAperture(ctx, code);
 		}
 		// default (unknown)
 		chprintf(chp, "%d %s\r\n", argc, argv[0]);
