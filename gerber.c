@@ -51,15 +51,15 @@ static void ApertureCFlash(GerberContext *ctx, ApertureC *a, int xpos, int ypos)
 		for( int x = -radix_in_steps; x <= 0; ++x) {
 			if( sqrtf(x*x + y*y) <= radix_in_steps ) {
 				if( dir ) {
-					MoveTo(xpos - x, ypos + y);
+					MoveTo(xpos - x, ypos + y, 0);
 					LaserEnable();
-					MoveTo(xpos + x, ypos + y);
+					MoveTo(xpos + x, ypos + y, 0);
 					LaserDisable();
 					dir++;
 				} else {
-					MoveTo(xpos + x, ypos + y);
+					MoveTo(xpos + x, ypos + y, 0);
 					LaserEnable();
-					MoveTo(xpos - x, ypos + y);
+					MoveTo(xpos - x, ypos + y, 0);
 					LaserDisable();
 					dir--;
 				}
@@ -80,9 +80,9 @@ static void FillRectangle(int x1, int y1, int x2, int y2, int xlen, int ylen) {
 	//chprintf(chp, "(%d,%d) to (%d,%d) %d %d\r\n", x1, y1, x2, y2, xlen, ylen);
 	
 	while(x1 != x2 || y1 != y2) {
-		MoveTo(x1, y1);
+		MoveTo(x1, y1, 1);
 		LaserEnable();
-		MoveTo(x1 + xlen, y1 + ylen);
+		MoveTo(x1 + xlen, y1 + ylen, 0);
 		LaserDisable();
 
 		const int error2 = error * 2;
@@ -97,9 +97,9 @@ static void FillRectangle(int x1, int y1, int x2, int y2, int xlen, int ylen) {
 		}
 	}
 
-	MoveTo(x2, y2);
+	MoveTo(x2, y2, 1);
 	LaserEnable();
-	MoveTo(x2 + xlen, y2 + ylen);
+	MoveTo(x2 + xlen, y2 + ylen, 0);
 	LaserDisable();
 }
 
@@ -166,30 +166,30 @@ static void ApertureRFlash(GerberContext *ctx, ApertureR *a, int xpos, int ypos)
 	int y1 = ypos - tool + a->h/half_accuracy;
 	unsigned dir = 0;
 	
-	MoveTo(x0,y0);
+	MoveTo(x0, y0, 1);
 	
 	LaserEnable();
 	
 	if( a->w > a->h ) {
 		for( int y = y0; y <=y1; ++y) {
-			MoveTo(CUR_X, y);
+			MoveTo(CUR_X, y, 0);
 			if( dir == 0) {
 				++dir;
-				MoveTo(x1, y);
+				MoveTo(x1, y, 0);
 			} else {
 				--dir;
-				MoveTo(x0, y);
+				MoveTo(x0, y, 0);
 			}
 		}
 	} else {
 		for( int x = x0; x <=x1; ++x) {
-			MoveTo(x, CUR_Y);
+			MoveTo(x, CUR_Y, 0);
 			if( dir == 0) {
 				++dir;
-				MoveTo(x, y1);
+				MoveTo(x, y1, 0);
 			} else {
 				--dir;
-				MoveTo(x, y0);
+				MoveTo(x, y0, 0);
 			}
 		}
 	}
@@ -325,7 +325,7 @@ static void GerberExecuteD(GerberContext* ctx, unsigned code, int x, int y) {
 		break;
 	
 	case 2: //D2
-		MoveTo(x, y);
+		MoveTo(x, y, 1);
 		break;
 
 	case 3: //D3
@@ -408,7 +408,7 @@ void GerberAcceptCommand(GerberContext* ctx, int argc, char* argv[]) {
 	} else if ( strncmp(argv[0], "G03", 3) == 0 ) {
 		ctx->is_clockwise = 0;
 	} else if ( strncmp(argv[0], "M02", 3) == 0 ) {
-		MoveTo(0,0); //return to the origin
+		MoveTo(0,0,1); //return to the origin
 	} else {
 		long long x = 0, y = 0;
 		unsigned code;
@@ -430,9 +430,16 @@ void GerberAcceptCommand(GerberContext* ctx, int argc, char* argv[]) {
 	}
 }
 
-void MoveTo(const int xpos, const int ypos) {
+void MoveTo(const int xpos, const int ypos, int silent) {
 	int x_delta = xpos - CUR_X;
 	int y_delta = ypos - CUR_Y;
+	MoveToRelative(x_delta, y_delta, silent);
+}
+
+
+void MoveToRelative(const int xpos, const int ypos, int silent) {
+	int x_delta = xpos;
+	int y_delta = ypos;
 	//chprintf(chp, "CUR_X=%d CUR_Y=%d deltax=%d deltay=%d\r\n", CUR_X, CUR_Y, x_delta, y_delta);
 	
 	if( x_delta >= 0 ) {
@@ -449,8 +456,8 @@ void MoveTo(const int xpos, const int ypos) {
 	}
 	
 	if( x_delta || y_delta ) {
-		MotorGroupMakeSteps(x_delta, y_delta);
-		CUR_X = xpos;
-		CUR_Y = ypos;
+		MotorGroupMakeSteps(x_delta, y_delta, silent);
+		CUR_X += xpos;
+		CUR_Y += ypos;
 	}
 }

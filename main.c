@@ -46,8 +46,8 @@ static void cmd_stop(BaseSequentialStream *chp, int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	(void)chp;
-	
-	MoveTo(0,0);
+
+	MoveTo(0, 0, 1);
 	MotorDriverSetSleep(MOTOR_X, true);
 	MotorDriverSetSleep(MOTOR_Y, true);
 }
@@ -57,7 +57,7 @@ static void cmd_moveto(BaseSequentialStream *chp, int argc, char *argv[]) {
 		chprintf(chp, "move XPOS YPOS\r\n");
 		return;
 	}
-	MoveTo(atoi(argv[0]), atoi(argv[1]));
+	MoveTo(atoi(argv[0]), atoi(argv[1]), 1);
 }
 
 static void cmd_movetol(BaseSequentialStream *chp, int argc, char *argv[]) {
@@ -67,7 +67,7 @@ static void cmd_movetol(BaseSequentialStream *chp, int argc, char *argv[]) {
 	}
 
 	LaserEnable();
-	MoveTo(atoi(argv[0]), atoi(argv[1]));
+	MoveTo(atoi(argv[0]), atoi(argv[1]), 0);
 	LaserDisable();
 }
 
@@ -75,7 +75,7 @@ static void cmd_origin(BaseSequentialStream *chp, int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	(void)chp;
-	MoveTo(0, 0);
+	MoveTo(0, 0, 1);
 }
 
 static void cmd_ping(BaseSequentialStream *chp, int argc, char *argv[]) {

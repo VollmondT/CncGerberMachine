@@ -52,7 +52,7 @@ typedef struct MotorGroup {
 	MotorDriver* m_drivers[MOTOR_GROUP_MAX_SIZE];
 } MotorGroup;
 
-void MotorGroupMakeSteps(const unsigned x_count, const unsigned y_count);
+void MotorGroupMakeSteps(const unsigned x_count, const unsigned y_count, int silent);
 
 extern MotorDriver DRV1;
 extern MotorDriver DRV2;

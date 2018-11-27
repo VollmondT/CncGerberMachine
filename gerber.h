@@ -44,7 +44,8 @@ GerberContext* GerberContextNew(void);
 void GerberContextFree(GerberContext* ctx);
 
 void GerberAcceptCommand(GerberContext* ctx, int argc, char* argv[]);
-void MoveTo(const int x, const int y);
+void MoveTo(const int x, const int y, int silent);
+void MoveToRelative(const int x, const int y, int silent);
 
 #endif // _GERBER_H
 
