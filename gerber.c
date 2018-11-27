@@ -76,30 +76,47 @@ static void FillRectangle(int x1, int y1, int x2, int y2, int xlen, int ylen) {
 	const int signY = y1 < y2 ? 1 : -1;
 	
 	int error = deltaX - deltaY;
+	int reverse = 0;
 	
 	//chprintf(chp, "(%d,%d) to (%d,%d) %d %d\r\n", x1, y1, x2, y2, xlen, ylen);
 	
+	MoveTo(x1, y1, 1);
+	LaserEnable();
 	while(x1 != x2 || y1 != y2) {
-		MoveTo(x1, y1, 1);
-		LaserEnable();
-		MoveTo(x1 + xlen, y1 + ylen, 0);
-		LaserDisable();
-
+		if( reverse ) {
+			MoveTo(x1, y1, 0);
+		} else {
+			MoveTo(x1 + xlen, y1 + ylen, 0);
+		}
+		reverse = !reverse;
 		const int error2 = error * 2;
+		int adj_x = 0;
+		int adj_y = 0;
 
 		if(error2 > -deltaY) {
 			error -= deltaY;
 			x1 += signX;
+			adj_x = signX;
 		}
 		if(error2 < deltaX) {
 			error += deltaX;
 			y1 += signY;
+			adj_y = signY;
+		}
+		// ajust few pixels
+		if( adj_x || adj_y ) {
+			MoveToRelative(adj_x, adj_y, 0);
+		}
+	}
+	// final line
+	if( deltaX > 1 || deltaY > 1 ) {
+		if( reverse ) {
+			MoveTo(x1, y1, 0);
+		} else {
+			MoveTo(x1 + xlen, y1 + ylen, 0);
 		}
 	}
 
-	MoveTo(x2, y2, 1);
-	LaserEnable();
-	MoveTo(x2 + xlen, y2 + ylen, 0);
 	LaserDisable();
 }
 
