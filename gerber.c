@@ -140,9 +140,9 @@ static void ApertureCLine(GerberContext *ctx, ApertureC *a, int x, int y) {
 	const int deltay = (y - ctx->y);
 	const float L = sqrtf(deltax*deltax + deltay*deltay);
 
-	const int A_x_pos = radix_in_steps * deltax / L;
+	const int A_x_pos = round(radix_in_steps * deltax / L);
 	const int B_x_pos = -A_x_pos;
-	const int A_y_pos = radix_in_steps * deltay / L;
+	const int A_y_pos = round(radix_in_steps * deltay / L);
 	const int B_y_pos = -A_y_pos;
 
 	FillRectangle(ctx->x + A_x_pos, ctx->y + A_y_pos, ctx->x + B_x_pos, ctx->y + B_y_pos, deltax, deltay);

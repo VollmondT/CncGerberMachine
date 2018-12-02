@@ -62,8 +62,8 @@ extern MotorDriver DRV2;
 #define MOTOR_X_DIRECTION_MINUS 1
 
 #define MOTOR_Y (&DRV2)
-#define MOTOR_Y_DIRECTION_PLUS 0
-#define MOTOR_Y_DIRECTION_MINUS 1
+#define MOTOR_Y_DIRECTION_PLUS 1
+#define MOTOR_Y_DIRECTION_MINUS 0
 
 #endif // _MOTOR_H
 
